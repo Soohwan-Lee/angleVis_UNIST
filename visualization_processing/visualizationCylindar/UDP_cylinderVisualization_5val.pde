@@ -15,9 +15,6 @@ float cylinderHeight = 200;
 float twistFactor = 0;
 float twistSensitivity = 0.01;
 
-float tiltX = 0;
-float tiltY = 0;
-
 void setup() {
   size(800, 600, P3D);
   udp = new UDP(this, port);
@@ -30,26 +27,32 @@ void draw() {
   lights();
   translate(width / 2, height * 3 / 4, 0);
 
-  tiltX = map(currPitch, 90, -90, -PI/2, PI/2);
-  tiltY = map(currRoll, -90, 90, -PI/2, PI/2);
-
-  rotateY(tiltY);
-  rotateX(tiltX);
+  // Roll, Pitch, Yaw 값을 쿼터니언으로 변환하여 독립적인 회전 적용
+  applyQuaternionRotation(currPitch, currRoll, 0);
 
   twistFactor += radians(yawAngularSpeed) * twistSensitivity;
   twistFactor = constrain(twistFactor, -PI, PI);
-  
-  // Fill the cylinder with Pitch & Roll AngularSpeed
-  //float red = map(abs(pitchAngularSpeed), 0, 150, 0, 255);
-  //float blue = map(abs(rollAngularSpeed), 0, 150, 0, 255);
-  //fill(int(red), 10, int(blue));
-  fill(150,150,150);
 
+  fill(150, 150, 150);
   drawTwistedCylinder();
 
+  // Twist 시각화를 위한 선 그리기
   stroke(255, 0, 0);
   strokeWeight(3);
   line(radius, -cylinderHeight, 0, radius * cos(twistFactor), 0, radius * sin(twistFactor));
+}
+
+// Pitch와 Roll을 독립적으로 적용하기 위해 쿼터니언 회전 사용
+void applyQuaternionRotation(float pitch, float roll, float yaw) {
+  // 각 축의 회전을 라디안으로 변환
+  float pitchRad = radians(pitch);
+  float rollRad = radians(roll);
+  float yawRad = radians(yaw);
+
+  // Roll, Pitch, Yaw에 따른 개별적인 회전 행렬 적용
+  rotateZ(rollRad);
+  rotateX(-pitchRad);
+  rotateY(yawRad);
 }
 
 void drawTwistedCylinder() {
@@ -68,7 +71,7 @@ void drawTwistedCylinder() {
   }
   endShape();
 
-  // Draw top and bottom circles
+  // 원기둥 상단과 하단 닫기
   beginShape(TRIANGLE_FAN);
   vertex(0, -cylinderHeight, 0);
   for (int i = 0; i <= numSides; i++) {
@@ -123,6 +126,14 @@ float[] parseStringData(String data) {
       }
     } else {
       println("Error: The data does not contain exactly five float values.");
+      return null;
+    }
+  } else if (data.length() > 0 && data.charAt(0) == '[' && data.charAt(data.length() - 1) == ']') {
+    String message = data.substring(1, data.length() - 1);
+    if (message.equals("calib")) {
+      twistFactor = 0;
+      return null;
+    } else {
       return null;
     }
   } else {
